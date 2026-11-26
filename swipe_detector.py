@@ -13,9 +13,11 @@ class SwipeDetector:
         self.max_vertical_displacement = 0.20
         self.min_velocity = 0.25
 
+        # Validation settings
         self.cooldown = 1.0
         self.release_duration = 0.25
-        # Position history
+
+        # Store historical hand positions
         self.position_history = deque()
 
         # Swipe state
@@ -24,6 +26,7 @@ class SwipeDetector:
         self.release_start_time = None
 
     def detect(self, landmarks, gesture_name, confidence):
+
         now = time.monotonic()
 
         # Confirm that an open palm is detected
@@ -36,14 +39,15 @@ class SwipeDetector:
         # Handle invalid gestures or hand release
         if not valid_palm:
 
-            # Immediately discard positions if hand tracking is lost
+            # Clear history if hand tracking is lost
             if landmarks is None:
                 self.position_history.clear()
 
+            # Start release timer
             if self.release_start_time is None:
                 self.release_start_time = now
 
-            # Only confirm release after a sustained interruption
+            # Confirm release after a sustained interruption
             if now - self.release_start_time >= self.release_duration:
 
                 self.position_history.clear()
@@ -58,17 +62,17 @@ class SwipeDetector:
         if self.swipe_latched:
             return None
 
-        # Check cooldown
+        # Prevent swipes from executing too frequently
         if now - self.last_swipe_time < self.cooldown:
             return None
 
-        # Track the middle finger base
+        # Track landmark 9 (base of the middle finger)
         palm = landmarks[9]
 
         x = palm.x
         y = palm.y
 
-        # Add current position to history
+        # Store current position and timestamp
         self.position_history.append((x, y, now))
 
         # Remove positions outside the time window
@@ -79,33 +83,25 @@ class SwipeDetector:
         ):
             self.position_history.popleft()
 
-        # Require enough samples to analyze movement
+        # Require at least three position samples
         if len(self.position_history) < 3:
             return None
 
-        # Retrieve the oldest position
-        start_x, start_y, start_time = (
-            self.position_history[0]
-        )
+        # Retrieve the oldest recorded position
+        start_x, start_y, start_time = self.position_history[0]
 
-        # Calculate displacement and duration
+        # Calculate displacement and movement duration
         dx = x - start_x
         dy = y - start_y
         duration = now - start_time
 
+        # Prevent division by zero
         if duration <= 0:
             return None
 
-        # Calculate horizontal velocity
+        # Calculate average horizontal velocity
         velocity = dx / duration
-        print(
-            f"Samples: {len(self.position_history)} | "
-            f"dx: {dx:.3f} | "
-            f"dy: {dy:.3f} | "
-            f"Duration: {duration:.3f} | "
-            f"Velocity: {velocity:.3f} | "
-            f"Confidence: {confidence:.3f}"
-        )
+
         # Reject insufficient horizontal movement
         if abs(dx) < self.min_displacement:
             return None
@@ -114,7 +110,7 @@ class SwipeDetector:
         if abs(dy) > self.max_vertical_displacement:
             return None
 
-        # Reject movement that is too slow
+        # Reject movements that are too slow
         if abs(velocity) < self.min_velocity:
             return None
 
@@ -133,6 +129,7 @@ class SwipeDetector:
 
     def reset(self):
 
+        # Reset swipe detection state
         self.position_history.clear()
         self.swipe_latched = False
         self.release_start_time = None
