@@ -81,8 +81,8 @@ def main():
 
             else:
 
-                # Reset when hand or gesture is lost
-                recognizer.reset()
+                # Allow the recognizer to confirm gesture release
+                recognizer.recognize(None, 0.0)
 
             # Determine control status
             status = (
